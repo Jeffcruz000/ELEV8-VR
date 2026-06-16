@@ -59,9 +59,14 @@ document.addEventListener('DOMContentLoaded', () => {
         let index = 0;
         let timer = null;
 
+        const dots = document.querySelectorAll('.hero-dot');
+
         const goToSlide = (i) => {
             index = (i + slides.length) % slides.length;
             container.style.transform = `translateX(${-index * 100}%)`;
+            dots.forEach((dot, di) => {
+                dot.classList.toggle('active', di === index);
+            });
         };
 
         const startAutoplay = () => {
@@ -115,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!targetNum || !container) return;
 
                 let count = 0;
-                const duration = 1800; 
+                const duration = 1800;
                 const frameRate = 1000 / 60;
                 const totalFrames = Math.round(duration / frameRate);
                 const step = targetNum / totalFrames;
@@ -141,9 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const initCookieBanner = () => {
         const banner = document.getElementById('cookieBanner');
         if (!banner) return;
-
-        // COMMENT OR REMOVE THIS LINE LATER TO SAVE PERMANENT CHOICE:
-        localStorage.removeItem('cookieConsent'); 
 
         // Checks if user already clicked it in a past session
         if (localStorage.getItem('cookieConsent')) {
@@ -217,6 +219,97 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(updatePosition, 50);
     };
 
+    // ── 8. POP-UP FAQ ACCORDION ENGINE
+    const initFaqModal = () => {
+        const openBtn = document.getElementById('openFaqBtn');
+        const modal = document.getElementById('faqModal');
+        const closeBtn = document.getElementById('closeFaqBtn');
+        const overlay = document.getElementById('closeFaqOverlay');
+
+       // console.log("FAQ Engine Status:", { buttonFound: !!openBtn, modalFound: !!modal });
+
+        if (!modal || !openBtn) return;
+
+        modal.classList.remove('open');
+        modal.setAttribute('inert', '');
+
+        const closeModal = () => {
+            modal.classList.remove('open');
+            modal.setAttribute('inert', '');
+            document.body.style.overflow = '';
+            openBtn.focus();
+        };
+
+        openBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            modal.classList.add('open');
+            modal.removeAttribute('inert');
+            document.body.style.overflow = 'hidden';
+            closeBtn?.focus();
+        });
+
+        closeBtn?.addEventListener('click', closeModal);
+        overlay?.addEventListener('click', closeModal);
+
+        const faqItems = modal.querySelectorAll('.faq-item');
+        faqItems.forEach(item => {
+            const questionBtn = item.querySelector('.faq-question');
+            const answer = item.querySelector('.faq-answer');
+
+            questionBtn?.addEventListener('click', () => {
+                const isActive = item.classList.contains('active');
+
+                faqItems.forEach(el => {
+                    el.classList.remove('active');
+                    const ans = el.querySelector('.faq-answer');
+                    if (ans) ans.style.maxHeight = null;
+                });
+
+                if (!isActive) {
+                    item.classList.add('active');
+                    answer.style.maxHeight = answer.scrollHeight + "px";
+                }
+            });
+        });
+    };
+
+    // ── 9. INTERACTIVE ASSESSMENT FORM HANDLER (NEW MODULE)
+    const initAssessmentForm = () => {
+        const form = document.getElementById('assessmentForm');
+        const modal = document.getElementById('faqModal');
+        if (!form) return;
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            // Extract values dynamically using the updated name attributes
+            const formData = new FormData(form);
+
+            // Clean JSON conversion structure
+            const payload = {};
+            formData.forEach((value, key) => {
+                payload[key] = value;
+            });
+
+            // Console payload logging (Replace this logic block with your API Endpoint / Formspree / EmailJS dispatch)
+            console.log("Form successfully submitted! Data captured:", payload);
+
+            // Interface Response Behavior
+            alert("Grazie! La tua valutazione iniziale è stata inviata con successo. Ti ricontatteremo entro 24 ore.");
+
+            // Reset and cleanly hide interactive evaluation modal context
+            form.reset();
+            if (modal) {
+                modal.classList.remove('open');
+                modal.setAttribute('inert', '');
+                document.body.style.overflow = '';
+                const openBtn = document.getElementById('openFaqBtn');
+                openBtn?.focus();
+            }
+        });
+    };
+
     // Initialize Modules safely
     initNavScroll();
     initMobileNav();
@@ -225,4 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initStatCounters();
     initCookieBanner();
     initReviewsCarousel();
+    initFaqModal();
+    initAssessmentForm(); // Triggers form lifecycle handler
 });
