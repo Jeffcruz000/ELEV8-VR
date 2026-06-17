@@ -4,12 +4,14 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Helper: Debounce function to limit unthrottled layout execution loops
+
+    // ── HELPER: True Context-Preserving Debounce
     const debounce = (func, delay = 100) => {
         let timeout;
-        return (...args) => {
+        return function (...args) {
+            const context = this;
             clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(this, args), delay);
+            timeout = setTimeout(() => func.apply(context, args), delay);
         };
     };
 
@@ -58,7 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let index = 0;
         let timer = null;
-
         const dots = document.querySelectorAll('.hero-dot');
 
         const goToSlide = (i) => {
@@ -76,6 +77,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const stopAutoplay = () => {
             if (timer) { clearInterval(timer); timer = null; }
         };
+
+        dots.forEach((dot, di) => {
+            dot.addEventListener('click', () => {
+                goToSlide(di);
+                stopAutoplay();
+                startAutoplay();
+            });
+        });
 
         container.style.transition = 'transform 700ms cubic-bezier(0.25, 1, 0.5, 1)';
 
@@ -147,7 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const banner = document.getElementById('cookieBanner');
         if (!banner) return;
 
-        // Checks if user already clicked it in a past session
         if (localStorage.getItem('cookieConsent')) {
             banner.style.display = 'none';
             return;
@@ -160,21 +168,15 @@ document.addEventListener('DOMContentLoaded', () => {
             banner.style.display = 'none';
         };
 
-        const acceptBtn = document.getElementById('cookieAccept');
-        const rejectBtn = document.getElementById('cookieReject');
+        document.getElementById('cookieAccept')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleConsent('accepted');
+        });
 
-        if (acceptBtn) {
-            acceptBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                handleConsent('accepted');
-            });
-        }
-        if (rejectBtn) {
-            rejectBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                handleConsent('rejected');
-            });
-        }
+        document.getElementById('cookieReject')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleConsent('rejected');
+        });
     };
 
     // ── 7. REVIEWS FLEX CAROUSEL
@@ -191,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nextBtn = document.querySelector('.arrow-btn[data-dir="next"]');
 
         const updatePosition = () => {
+            if (cards[0].getBoundingClientRect().width === 0) return;
             const gap = parseFloat(getComputedStyle(track).gap) || 16;
             const cardWidth = cards[0].getBoundingClientRect().width;
             track.style.transform = `translateX(${-index * (cardWidth + gap)}px)`;
@@ -216,17 +219,15 @@ document.addEventListener('DOMContentLoaded', () => {
         track.style.transition = 'transform 450ms cubic-bezier(0.4, 0, 0.2, 1)';
         window.addEventListener('resize', debounce(updatePosition));
 
-        setTimeout(updatePosition, 50);
+        setTimeout(updatePosition, 100);
     };
 
-    // ── 8. POP-UP FAQ ACCORDION ENGINE
+    // ── 8. POP-UP FAQ ACCORDION ENGINE (Matched to fb9bc22c-9703-4fb6-90ab-37a04cbee7be styling)
     const initFaqModal = () => {
         const openBtn = document.getElementById('openFaqBtn');
         const modal = document.getElementById('faqModal');
         const closeBtn = document.getElementById('closeFaqBtn');
         const overlay = document.getElementById('closeFaqOverlay');
-
-       // console.log("FAQ Engine Status:", { buttonFound: !!openBtn, modalFound: !!modal });
 
         if (!modal || !openBtn) return;
 
@@ -252,29 +253,45 @@ document.addEventListener('DOMContentLoaded', () => {
         closeBtn?.addEventListener('click', closeModal);
         overlay?.addEventListener('click', closeModal);
 
-        const faqItems = modal.querySelectorAll('.faq-item');
-        faqItems.forEach(item => {
-            const questionBtn = item.querySelector('.faq-question');
-            const answer = item.querySelector('.faq-answer');
+        // Targeted exact matching mappings for your active CSS properties
+        const faqButtons = modal.querySelectorAll('.faq-question-btn');
 
-            questionBtn?.addEventListener('click', () => {
-                const isActive = item.classList.contains('active');
+        faqButtons.forEach(btn => {
+            // Isolates child clicks (like the chevrons/text spans) from confusing event targets
+            const descendants = btn.querySelectorAll('*');
+            descendants.forEach(child => {
+                child.style.pointerEvents = 'none';
+            });
 
-                faqItems.forEach(el => {
-                    el.classList.remove('active');
-                    const ans = el.querySelector('.faq-answer');
-                    if (ans) ans.style.maxHeight = null;
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const isExpanded = btn.getAttribute('aria-expanded') === 'true';
+                const nextPanel = btn.nextElementSibling;
+
+                // 1. Collapse all currently opened accordion menus first
+                faqButtons.forEach(otherBtn => {
+                    otherBtn.setAttribute('aria-expanded', 'false');
+                    const otherPanel = otherBtn.nextElementSibling;
+                    if (otherPanel && otherPanel.classList.contains('faq-answer-panel')) {
+                        otherPanel.style.maxHeight = null;
+                    }
                 });
 
-                if (!isActive) {
-                    item.classList.add('active');
-                    answer.style.maxHeight = answer.scrollHeight + "px";
+                // 2. Open this element cleanly if it wasn't already open
+                if (!isExpanded) {
+                    btn.setAttribute('aria-expanded', 'true');
+                    if (nextPanel && nextPanel.classList.contains('faq-answer-panel')) {
+                        // Dynamically sets standard scroll height layouts matching your transitions
+                        nextPanel.style.maxHeight = nextPanel.scrollHeight + "px";
+                    }
                 }
             });
         });
     };
 
-    // ── 9. INTERACTIVE ASSESSMENT FORM HANDLER (NEW MODULE)
+    // ── 9. INTERACTIVE ASSESSMENT FORM HANDLER
     const initAssessmentForm = () => {
         const form = document.getElementById('assessmentForm');
         const modal = document.getElementById('faqModal');
@@ -283,34 +300,24 @@ document.addEventListener('DOMContentLoaded', () => {
         form.addEventListener('submit', (e) => {
             e.preventDefault();
 
-            // Extract values dynamically using the updated name attributes
             const formData = new FormData(form);
+            const payload = Object.fromEntries(formData.entries());
 
-            // Clean JSON conversion structure
-            const payload = {};
-            formData.forEach((value, key) => {
-                payload[key] = value;
-            });
-
-            // Console payload logging (Replace this logic block with your API Endpoint / Formspree / EmailJS dispatch)
             console.log("Form successfully submitted! Data captured:", payload);
 
-            // Interface Response Behavior
             alert("Grazie! La tua valutazione iniziale è stata inviata con successo. Ti ricontatteremo entro 24 ore.");
 
-            // Reset and cleanly hide interactive evaluation modal context
             form.reset();
             if (modal) {
                 modal.classList.remove('open');
                 modal.setAttribute('inert', '');
                 document.body.style.overflow = '';
-                const openBtn = document.getElementById('openFaqBtn');
-                openBtn?.focus();
+                document.getElementById('openFaqBtn')?.focus();
             }
         });
     };
 
-    // Initialize Modules safely
+    // Execution Life Cycle
     initNavScroll();
     initMobileNav();
     initHeroCarousel();
@@ -319,5 +326,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initCookieBanner();
     initReviewsCarousel();
     initFaqModal();
-    initAssessmentForm(); // Triggers form lifecycle handler
+    initAssessmentForm();
 });
